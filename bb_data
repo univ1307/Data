@@ -1,0 +1,64 @@
+import blpapi
+import pandas as pd
+from datetime import datetime, timedelta
+
+__all__ = ["get_intraday_data"]
+
+def get_intraday_data(ticker, interval_minutes=1, minutes_back=30, event_type="TRADE"):
+    """
+    Fetch intraday bar data for a given Bloomberg ticker.
+
+    Parameters:
+    - ticker (str): Bloomberg ticker, e.g., "AAPL US Equity"
+    - interval_minutes (int): Bar interval in minutes (e.g., 1, 5, 15)
+    - minutes_back (int): Lookback period in minutes
+    - event_type (str): Event type (TRADE, BID, ASK, etc.)
+
+    Returns:
+    - pd.DataFrame with columns: time, open, high, low, close, volume
+    """
+    session_options = blpapi.SessionOptions()
+    session = blpapi.Session(session_options)
+
+    if not session.start():
+        raise RuntimeError("Failed to start Bloomberg session.")
+
+    if not session.openService("//blp/refdata"):
+        raise RuntimeError("Failed to open //blp/refdata service.")
+
+    ref_data_service = session.getService("//blp/refdata")
+    request = ref_data_service.createRequest("IntradayBarRequest")
+
+    end_time = datetime.utcnow()
+    start_time = end_time - timedelta(minutes=minutes_back)
+
+    request.set("security", ticker)
+    request.set("eventType", event_type)
+    request.set("interval", interval_minutes)
+    request.set("startDateTime", start_time.isoformat())
+    request.set("endDateTime", end_time.isoformat())
+
+    session.sendRequest(request)
+
+    data = []
+
+    while True:
+        event = session.nextEvent()
+        for msg in event:
+            if msg.hasElement("barData"):
+                bars = msg.getElement("barData").getElement("barTickData")
+                for i in range(bars.numValues()):
+                    bar = bars.getValue(i)
+                    data.append({
+                        "time": bar.getElementAsDatetime("time"),
+                        "open": bar.getElementAsFloat("open"),
+                        "high": bar.getElementAsFloat("high"),
+                        "low": bar.getElementAsFloat("low"),
+                        "close": bar.getElementAsFloat("close"),
+                        "volume": bar.getElementAsFloat("volume"),
+                    })
+        if event.eventType() == blpapi.Event.RESPONSE:
+            break
+
+    session.stop()
+    return pd.DataFrame(data)
