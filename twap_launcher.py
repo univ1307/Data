@@ -12,7 +12,7 @@ log_dir = "log"
 os.makedirs(log_dir, exist_ok=True)
 
 # Open log file inside the log folder
-log_path = os.path.join(log_dir, f"twap_launcher_log_{datetime.date.today().strftime('%Y%m%d')}.txt")
+log_path = os.path.join(log_dir, f"twap_launcher_log_{datetime.date.today().strftime('%Y%m%d')}.log")
 log_file = open(log_path, "a", encoding="utf-8")
 
 # Override print to log to file and console
@@ -62,7 +62,7 @@ jobs = [
 # Launch each job as a subprocess
 for job in jobs:
     args = [
-        'python', 'TWAP_runner_v4.py',
+        'python', 'TWAP_runner_v5.py',
         job['product'],
         str(job['direction']),
         str(job['total_size']),
